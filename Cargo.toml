@@ -9,16 +9,32 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 default = []
-offscreen-2d = [
-    "web-sys/ImageData",
-    "web-sys/OffscreenCanvas",
-    "web-sys/OffscreenCanvasRenderingContext2d",
+
+# common canvas features
+offscreen = ["web-sys/OffscreenCanvas"]
+html = ["web-sys/HtmlCanvasElement"]
+
+# common context features
+2d = ["web-sys/ImageData"]
+gl = [
+    "web-sys/WebGlShader",
+    "web-sys/WebGlTexture",
+    "web-sys/WebGlProgram",
+    "web-sys/WebGlBuffer",
+    "web-sys/WebGlUniformLocation",
 ]
-html-2d = [
-    "web-sys/ImageData",
-    "web-sys/HtmlCanvasElement",
-    "web-sys/CanvasRenderingContext2d",
-]
+webgl = ["gl", "web-sys/WebGlRenderingContext"]
+webgl2 = ["gl", "web-sys/WebGl2RenderingContext"]
+
+# capture features
+offscreen-2d = ["offscreen", "2d", "web-sys/OffscreenCanvasRenderingContext2d"]
+offscreen-webgl = ["offscreen", "webgl"]
+offscreen-webgl2 = ["offscreen", "webgl2"]
+html-2d = ["html", "2d", "web-sys/CanvasRenderingContext2d"]
+html-webgl = ["html", "webgl"]
+html-webgl2 = ["html", "webgl2"]
+
+# extra features
 image = ["dep:image"]
 
 [dependencies]
@@ -35,11 +51,11 @@ web-sys = { version = "0.3.69", features = [
     "HtmlCanvasElement",
     "CanvasRenderingContext2d",
     "MediaStream",
-    "MediaStreamTrack"
+    "MediaStreamTrack",
 ] }
 gloo = { version = "0.11.0", default-features = false, features = [
     "utils",
-    "console"
+    "console",
 ] }
 console_error_panic_hook = "0.1.7"
 image = { version = "0.25.2", default-features = false }

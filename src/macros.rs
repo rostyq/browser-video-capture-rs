@@ -37,7 +37,7 @@ macro_rules! impl_canvas_capture_area {
 
 #[macro_export]
 macro_rules! impl_capture_2d {
-    ($name:tt $canvas:tt $context:tt $options:tt) => {
+    ($name:tt $canvas:path, $context:path, $options:path) => {
         #[derive(Debug, Clone, PartialEq, Eq)]
         pub struct $name {
             canvas: $canvas,
@@ -81,15 +81,15 @@ macro_rules! impl_capture_2d {
         impl BrowserVideoCapture for $name {
             fn capture(
                 &self,
-                source: &HtmlVideoElement,
-                mode: CaptureMode,
+                source: &web_sys::HtmlVideoElement,
+                mode: crate::CaptureMode,
             ) -> Result<(u32, u32), js_sys::Error> {
                 match mode {
-                    CaptureMode::Put(dx, dy) => self
+                    crate::CaptureMode::Put(dx, dy) => self
                         .context
                         .draw_image_with_html_video_element(source, dx as f64, dy as f64)
-                        .map(|_| video_size(source)),
-                    CaptureMode::Fill => {
+                        .map(|_| crate::utils::video_size(source)),
+                    crate::CaptureMode::Fill => {
                         let (dw, dh) = self.capture_size();
 
                         self.context
@@ -98,9 +98,9 @@ macro_rules! impl_capture_2d {
                             )
                             .map(|_| (dw, dh))
                     }
-                    CaptureMode::Adjust => {
+                    crate::CaptureMode::Adjust => {
                         let (dw, dh) = self.capture_size();
-                        let (sw, sh) = video_size(source);
+                        let (sw, sh) = crate::utils::video_size(source);
 
                         if sw != dw || sh != dh {
                             self.set_capture_size(sw, sh);
@@ -112,9 +112,9 @@ macro_rules! impl_capture_2d {
                             )
                             .map(|_| (dw, dh))
                     }
-                    CaptureMode::Pinhole => {
+                    crate::CaptureMode::Pinhole => {
                         let (cw, ch) = self.capture_size();
-                        let (sw, sh) = video_size(source);
+                        let (sw, sh) = crate::utils::video_size(source);
 
                         let (dx, dy, dw, dh) = if sw > sh {
                             let dh = ch as f64 * sw as f64 / sh as f64;
@@ -144,7 +144,7 @@ macro_rules! impl_capture_2d {
                 self.read_data(0, 0, self.capture_width(), self.capture_height())
             }
 
-            fn read(&self, source: &HtmlVideoElement, mode: CaptureMode) -> Result<Vec<u8>, js_sys::Error> {
+            fn read(&self, source: &web_sys::HtmlVideoElement, mode: crate::CaptureMode) -> Result<Vec<u8>, js_sys::Error> {
                 let (width, height) = self.capture(source, mode)?;
                 self.read_data(0, 0, width, height)
             }
