@@ -64,6 +64,7 @@ pub mod html {
 #[cfg(feature = "offscreen")]
 pub mod offscreen {
     use super::*;
+
     #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
     pub struct OffscreenContextOptions2D {
         pub alpha: bool,
