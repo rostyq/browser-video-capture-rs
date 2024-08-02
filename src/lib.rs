@@ -3,7 +3,7 @@ mod macros;
 mod utils;
 
 #[cfg(feature = "2d")]
-mod _2d;
+mod d2;
 
 use web_sys::{js_sys, HtmlVideoElement};
 
@@ -136,6 +136,6 @@ pub trait BrowserVideoCapture: CaptureArea {
 }
 
 #[cfg(feature = "html-2d")]
-pub use _2d::html::{ColorSpaceType, HtmlCapture2D, HtmlContextOptions2D};
+pub use d2::html::{ColorSpaceType, HtmlCapture2D, HtmlContextOptions2D};
 #[cfg(feature = "offscreen-2d")]
-pub use _2d::offscreen::{OffscreenCapture2D, OffscreenContextOptions2D, OffscreenStorageType};
+pub use d2::offscreen::{OffscreenCapture2D, OffscreenContextOptions2D, OffscreenStorageType};
