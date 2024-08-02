@@ -38,10 +38,23 @@ macro_rules! impl_capture_2d {
                 mode: crate::CaptureMode,
             ) -> Result<(u32, u32), js_sys::Error> {
                 match mode {
-                    crate::CaptureMode::Put(dx, dy) => self
+                    crate::CaptureMode::Put(dx, dy) => {
+                        if dx > 0 || dy > 0 {
+                            self.clear();
+                        } else {
+                            let (dw, dh) = self.capture_size();
+                            let (sw, sh) = crate::utils::video_size(source);
+
+                            if (sw as i32 - dx) < dw as i32 || (sh as i32 - dy) < dh as i32 {
+                                self.clear();
+                            }
+                        }
+
+                        self
                         .context
                         .draw_image_with_html_video_element(source, dx as f64, dy as f64)
-                        .map(|_| crate::utils::video_size(source)),
+                        .map(|_| crate::utils::video_size(source))
+                    },
                     crate::CaptureMode::Fill => {
                         let (dw, dh) = self.capture_size();
 
@@ -68,6 +81,10 @@ macro_rules! impl_capture_2d {
                     crate::CaptureMode::Pinhole => {
                         let (cw, ch) = self.capture_size();
                         let (sw, sh) = crate::utils::video_size(source);
+
+                        if sw < cw || sh < ch {
+                            self.clear();
+                        }
 
                         let (dx, dy, dw, dh) = if sw > sh {
                             let dh = ch as f64 * sw as f64 / sh as f64;
