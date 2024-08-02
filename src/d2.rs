@@ -16,27 +16,8 @@ macro_rules! impl_capture_2d {
         }
 
         impl $name {
-            pub fn from_canvas_with_options(
-                canvas: $canvas,
-                options: $options,
-            ) -> Result<Option<Self>, js_sys::Error> {
-                match canvas.get_context_with_context_options("2d", &options.into())? {
-                    Some(obj) => {
-                        let context = obj.dyn_into::<$context>().unwrap();
-                        Ok(Some(Self { canvas, context }))
-                    }
-                    None => Ok(None),
-                }
-            }
-
-            pub fn from_canvas(canvas: $canvas) -> Result<Option<Self>, js_sys::Error> {
-                match canvas.get_context("2d")? {
-                    Some(obj) => {
-                        let context = obj.dyn_into::<$context>().unwrap();
-                        Ok(Some(Self { canvas, context }))
-                    }
-                    None => Ok(None),
-                }
+            pub fn new(canvas: $canvas, context: $context) -> Self {
+                Self { canvas, context }
             }
 
             fn read_data(&self, x: i32, y: i32, width: u32, height: u32) -> Result<Vec<u8>, js_sys::Error> {
@@ -47,6 +28,7 @@ macro_rules! impl_capture_2d {
             }
         }
 
+        impl_capture_from_canvas!("2d", $name, $canvas, $context, $options);
         impl_canvas_capture_area!($name);
 
         impl BrowserVideoCapture for $name {
@@ -142,24 +124,13 @@ macro_rules! impl_capture_2d {
 pub mod html {
     use super::*;
 
-    #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-    pub struct HtmlContextOptions2D {
-        pub alpha: bool,
-        pub desynchronized: bool,
-        pub will_read_frequently: bool,
-        pub color_space: ColorSpaceType,
-    }
-
-    impl Into<JsValue> for HtmlContextOptions2D {
-        fn into(self) -> JsValue {
-            let options = js_sys::Object::new();
-            js_set!(options, "alpha", self.alpha);
-            js_set!(options, "desynchronized", self.desynchronized);
-            js_set!(options, "willReadFrequently", self.will_read_frequently);
-            js_set!(options, "colorSpace", self.color_space.to_string());
-            options.into()
-        }
-    }
+    impl_context_options!(
+        HtmlContextOptions2D
+        "alpha" alpha: bool,
+        "desynchronized" desynchronized: bool,
+        "willReadFrequently" will_read_frequently: bool,
+        "colorSpace" color_space: ColorSpaceType
+    );
 
     #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
     #[non_exhaustive]
@@ -178,6 +149,12 @@ pub mod html {
         }
     }
 
+    impl Into<JsValue> for ColorSpaceType {
+        fn into(self) -> JsValue {
+            JsValue::from(self.to_string())
+        }
+    }
+
     impl_capture_2d!(
         HtmlCapture2D
         web_sys::HtmlCanvasElement,
@@ -186,7 +163,7 @@ pub mod html {
     );
 
     impl HtmlCapture2D {
-        pub fn new(context: web_sys::CanvasRenderingContext2d) -> Option<Self> {
+        pub fn from_context(context: web_sys::CanvasRenderingContext2d) -> Option<Self> {
             context.canvas().map(|canvas| Self { context, canvas })
         }
     }
@@ -196,22 +173,12 @@ pub mod html {
 pub mod offscreen {
     use super::*;
 
-    #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-    pub struct OffscreenContextOptions2D {
-        pub alpha: bool,
-        pub will_read_frequently: bool,
-        pub storage: OffscreenStorageType,
-    }
-
-    impl Into<JsValue> for OffscreenContextOptions2D {
-        fn into(self) -> JsValue {
-            let options = js_sys::Object::new();
-            js_set!(options, "alpha", self.alpha);
-            js_set!(options, "willReadFrequently", self.will_read_frequently);
-            js_set!(options, "storage", self.storage.to_string());
-            options.into()
-        }
-    }
+    impl_context_options!(
+        OffscreenContextOptions2D
+        "alpha" alpha: bool,
+        "willReadFrequently" will_read_frequently: bool,
+        "storage" storage: OffscreenStorageType
+    );
 
     #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
     #[non_exhaustive]
@@ -228,6 +195,12 @@ pub mod offscreen {
         }
     }
 
+    impl Into<JsValue> for OffscreenStorageType {
+        fn into(self) -> JsValue {
+            JsValue::from(self.to_string())
+        }
+    }
+
     impl_capture_2d!(
         OffscreenCapture2D
         web_sys::OffscreenCanvas,
@@ -236,7 +209,7 @@ pub mod offscreen {
     );
 
     impl OffscreenCapture2D {
-        pub fn new(context: web_sys::OffscreenCanvasRenderingContext2d) -> Self {
+        pub fn from_context(context: web_sys::OffscreenCanvasRenderingContext2d) -> Self {
             let canvas = context.canvas();
             Self { context, canvas }
         }
