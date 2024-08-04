@@ -8,23 +8,28 @@ use web_sys::{
 use crate::{BrowserVideoCapture, CaptureArea};
 
 macro_rules! impl_capture_2d {
-    ($name:tt $canvas:path, $context:path, $options:path) => {
+    ($name:tt $canvas:ty, $context:ty, $options:ty) => {
         #[derive(Debug, Clone, PartialEq, Eq)]
         pub struct $name {
             canvas: $canvas,
             context: $context,
+            color: crate::CaptureColor,
         }
 
         impl $name {
-            pub fn new(canvas: $canvas, context: $context) -> Self {
-                Self { canvas, context }
+            pub fn new(canvas: $canvas, context: $context, color: crate::CaptureColor) -> Self {
+                Self { canvas, context, color }
             }
 
-            fn read_data(&self, x: i32, y: i32, width: u32, height: u32) -> Result<Vec<u8>, js_sys::Error> {
+            pub fn validate(self) -> Result<Self, Option<String>> {
+                Ok(self)
+            }
+
+            fn read_data(&self, x: i32, y: i32, width: u32, height: u32) -> Vec<u8> {
                 let image_data =
                     self.context
-                        .get_image_data(x as f64, y as f64, width as f64, height as f64)?;
-                Ok(image_data.data().0)
+                        .get_image_data(x as f64, y as f64, width as f64, height as f64).unwrap();
+                image_data.data().0
             }
         }
 
@@ -36,52 +41,49 @@ macro_rules! impl_capture_2d {
                 &self,
                 source: &web_sys::HtmlVideoElement,
                 mode: crate::CaptureMode,
-            ) -> Result<(u32, u32), js_sys::Error> {
+            ) -> (u32, u32) {
+                let (sw, sh) = crate::utils::video_size(source);
+                let (mut cw, mut ch) = self.capture_size();
+
+                if sw == 0 || sh == 0 {
+                    return (cw, ch);
+                }
+
+                self.context.set_image_smoothing_enabled(false);
+
                 match mode {
                     crate::CaptureMode::Put(dx, dy) => {
                         if dx > 0 || dy > 0 {
                             self.clear();
                         } else {
-                            let (dw, dh) = self.capture_size();
                             let (sw, sh) = crate::utils::video_size(source);
 
-                            if (sw as i32 - dx) < dw as i32 || (sh as i32 - dy) < dh as i32 {
+                            if (sw as i32 - dx) < cw as i32 || (sh as i32 - dy) < ch as i32 {
                                 self.clear();
                             }
                         }
 
-                        self
-                        .context
-                        .draw_image_with_html_video_element(source, dx as f64, dy as f64)
-                        .map(|_| crate::utils::video_size(source))
+                        self.context.draw_image_with_html_video_element(source, dx as f64, dy as f64)
                     },
                     crate::CaptureMode::Fill => {
-                        let (dw, dh) = self.capture_size();
-
                         self.context
                             .draw_image_with_html_video_element_and_dw_and_dh(
-                                source, 0.0, 0.0, dw as f64, dh as f64,
+                                source, 0.0, 0.0, cw as f64, ch as f64,
                             )
-                            .map(|_| (dw, dh))
                     }
                     crate::CaptureMode::Adjust => {
-                        let (dw, dh) = self.capture_size();
-                        let (sw, sh) = crate::utils::video_size(source);
-
-                        if sw != dw || sh != dh {
+                        if sw != cw || sh != ch {
                             self.set_capture_size(sw, sh);
+                            cw = sw;
+                            ch = sh;
                         }
 
                         self.context
                             .draw_image_with_html_video_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                                source, 0.0, 0.0, sw as f64, sh as f64, 0.0, 0.0, dw as f64, dh as f64,
+                                source, 0.0, 0.0, sw as f64, sh as f64, 0.0, 0.0, cw as f64, ch as f64,
                             )
-                            .map(|_| (dw, dh))
                     }
                     crate::CaptureMode::Pinhole => {
-                        let (cw, ch) = self.capture_size();
-                        let (sw, sh) = crate::utils::video_size(source);
-
                         if sw < cw || sh < ch {
                             self.clear();
                         }
@@ -98,25 +100,36 @@ macro_rules! impl_capture_2d {
                             .draw_image_with_html_video_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
                                 source, 0.0, 0.0, sw as f64, sh as f64, dx, dy, dw, dh,
                             )
-                            .map(|_| (cw, ch))
                     }
+                }.unwrap();
+
+                (cw, ch)
+            }
+
+            fn retrieve(&self, buffer: &mut [u8]) {
+                let (w, h) = self.capture_size();
+                if w > 0 && h > 0 {
+                    let data = self.read_data(0, 0, w, h);
+                    buffer.copy_from_slice(data.as_slice());
                 }
-                .map_err(|value| value.dyn_into::<js_sys::Error>().unwrap())
             }
 
-            fn retrieve(&self, buffer: &mut [u8]) -> Result<(), js_sys::Error> {
-                let data = self.read_data(0, 0, self.capture_width(), self.capture_height())?;
-                buffer.copy_from_slice(data.as_slice());
-                Ok(())
+            fn data(&self) -> Vec<u8> {
+                let (w, h) = self.capture_size();
+                if w > 0 && h > 0 {
+                    self.read_data(0, 0, w, h)
+                } else {
+                    Vec::new()
+                }
             }
 
-            fn data(&self) -> Result<Vec<u8>, js_sys::Error> {
-                self.read_data(0, 0, self.capture_width(), self.capture_height())
-            }
-
-            fn read(&self, source: &web_sys::HtmlVideoElement, mode: crate::CaptureMode) -> Result<Vec<u8>, js_sys::Error> {
-                let (width, height) = self.capture(source, mode)?;
-                self.read_data(0, 0, width, height)
+            fn read(&self, source: &web_sys::HtmlVideoElement, mode: crate::CaptureMode) -> Vec<u8> {
+                let (w, h) = self.capture(source, mode);
+                if w > 0 && h > 0 {
+                    self.read_data(0, 0, w, h)
+                } else {
+                    Vec::new()
+                }
             }
 
             fn clear(&self) {
@@ -180,8 +193,15 @@ pub mod html {
     );
 
     impl HtmlCapture2D {
-        pub fn from_context(context: web_sys::CanvasRenderingContext2d) -> Option<Self> {
-            context.canvas().map(|canvas| Self { context, canvas })
+        pub fn from_context(
+            context: web_sys::CanvasRenderingContext2d,
+            color: crate::CaptureColor,
+        ) -> Option<Self> {
+            context.canvas().map(|canvas| Self {
+                context,
+                canvas,
+                color,
+            })
         }
     }
 }
@@ -226,9 +246,16 @@ pub mod offscreen {
     );
 
     impl OffscreenCapture2D {
-        pub fn from_context(context: web_sys::OffscreenCanvasRenderingContext2d) -> Self {
+        pub fn from_context(
+            context: web_sys::OffscreenCanvasRenderingContext2d,
+            color: crate::CaptureColor,
+        ) -> Self {
             let canvas = context.canvas();
-            Self { context, canvas }
+            Self {
+                context,
+                canvas,
+                color,
+            }
         }
     }
 }

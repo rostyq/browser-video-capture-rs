@@ -21,46 +21,35 @@ use gloo::{
     utils::{body, document, window},
 };
 
-use browser_video_capture::{BrowserVideoCapture, CaptureMode, HtmlCapture2D, OffscreenCapture2D};
+use browser_video_capture::{
+    BrowserVideoCapture, CaptureColor, CaptureMode, HtmlCapture2D, OffscreenCapture2D, OffscreenCaptureGL,
+};
 
 const DEFAULT_WIDTH: u32 = 300;
 const DEFAULT_HEIGHT: u32 = 150;
 
+macro_rules! create_canvas {
+    (html $w:expr,$h:expr) => {
+        create_html_canvas($w, $h)
+    };
+    (offscreen $w:expr,$h:expr) => {
+        create_offscreen_canvas($w, $h)
+    };
+}
+
 macro_rules! create_capture {
-    (html $kind:ident) => {
-        $kind::from_canvas(create_html_canvas(DEFAULT_WIDTH, DEFAULT_HEIGHT))
+    ($cv:tt $kind:ty, $color:expr, ($w:expr,$h:expr)) => {
+        <$kind>::from_canvas(create_canvas!($cv $w,$h), $color)
             .unwrap()
             .unwrap()
-    };
-    (html $kind:ident $w:expr,$h:expr) => {
-        $kind::from_canvas(create_html_canvas($w, $h))
-            .unwrap()
+            .validate()
             .unwrap()
     };
-    (offscreen $kind:ident) => {
-        $kind::from_canvas(create_offscreen_canvas(DEFAULT_WIDTH, DEFAULT_HEIGHT))
-            .unwrap()
-            .unwrap()
-    };
-    (offscreen $kind:ident $w:expr,$h:expr) => {
-        $kind::from_canvas(create_offscreen_canvas($w, $h))
-            .unwrap()
-            .unwrap()
-    };
-    [$($canvas:tt $kind:ident $w:expr,$h:expr);*] => {
+    [$($cv:tt $kind:ty, $color:expr, ($w:expr,$h:expr));*] => {
         {
             let mut arr = Vec::new();
             $(
-                arr.push(Box::new(create_capture!($canvas $kind $w,$h)) as Box<dyn BrowserVideoCapture>);
-            )*
-            arr
-        }
-    };
-    [$($canvas:tt $kind:ident);*] => {
-        {
-            let mut arr = Vec::new();
-            $(
-                arr.push(Box::new(create_capture!($canvas $kind)) as Box<dyn BrowserVideoCapture>);
+                arr.push(Box::new(create_capture!($cv $kind, $color, ($w,$h))) as Box<dyn BrowserVideoCapture>);
             )*
             arr
         }
@@ -139,29 +128,12 @@ impl Drop for CaptureContext {
 wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test]
-fn capture_mode_adjust_fails_on_empty_video() {
-    let source = create_video!();
-
-    let caps = create_capture![
-        html HtmlCapture2D;
-        offscreen OffscreenCapture2D
-    ];
-
-    for cap in caps.into_iter() {
-        cap.capture(&source, CaptureMode::Adjust).unwrap();
-        assert_eq!(cap.capture_width(), 0);
-        assert_eq!(cap.capture_height(), 0);
-
-        assert_eq!(cap.data().unwrap_err().name(), "IndexSizeError");
-    }
-}
-
-#[wasm_bindgen_test]
-fn put_fill_pinhole_modes_capture_empty_video() {
+fn capture_ignores_empty_video() {
     let source = create_video!();
     let caps = create_capture![
-        html HtmlCapture2D;
-        offscreen OffscreenCapture2D
+        html HtmlCapture2D, CaptureColor::RGBA, (DEFAULT_WIDTH, DEFAULT_HEIGHT);
+        offscreen OffscreenCapture2D, CaptureColor::RGBA, (DEFAULT_WIDTH, DEFAULT_HEIGHT);
+        offscreen OffscreenCaptureGL, CaptureColor::RGBA, (DEFAULT_WIDTH, DEFAULT_HEIGHT)
     ];
 
     for cap in caps.into_iter() {
@@ -170,12 +142,13 @@ fn put_fill_pinhole_modes_capture_empty_video() {
             CaptureMode::Fill,
             CaptureMode::Pinhole,
         ] {
-            cap.capture(&source, mode).unwrap();
+            cap.capture(&source, mode);
             assert_eq!(cap.capture_width(), DEFAULT_WIDTH);
             assert_eq!(cap.capture_height(), DEFAULT_HEIGHT);
 
-            let data = cap.data().unwrap();
+            let data = cap.data();
             assert_eq!(data.len(), cap.buffer_size());
+            console_dbg!(&data[0..8]);
             for value in data.into_iter() {
                 assert_eq!(value, 0);
             }
@@ -187,8 +160,9 @@ fn put_fill_pinhole_modes_capture_empty_video() {
 async fn all_modes_capture_video_frame_1x1() {
     let ctx = CaptureContext::new(1, 1);
     let caps = create_capture![
-        html HtmlCapture2D 1,1;
-        offscreen OffscreenCapture2D 1,1
+        html HtmlCapture2D, CaptureColor::RGBA, (1, 1);
+        offscreen OffscreenCapture2D, CaptureColor::RGBA, (1, 1);
+        offscreen OffscreenCaptureGL, CaptureColor::RGBA, (1, 1)
     ];
 
     ctx.context.set_fill_style(&"white".into());
@@ -204,7 +178,7 @@ async fn all_modes_capture_video_frame_1x1() {
             CaptureMode::Pinhole,
             CaptureMode::Adjust,
         ] {
-            cap.capture(&ctx.video, mode).unwrap();
+            cap.capture(&ctx.video, mode);
             let data = cap.image().unwrap().into_rgba8();
             assert_eq!(data.len(), cap.buffer_size());
             assert_eq!(data.len(), 4);

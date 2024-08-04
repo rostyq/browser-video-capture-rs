@@ -14,7 +14,7 @@ macro_rules! js_set {
 
 #[macro_export]
 macro_rules! impl_canvas_capture_area {
-    ($name:tt) => {
+    ($name:ty) => {
         impl crate::CaptureArea for $name {
             fn capture_width(&self) -> u32 {
                 self.canvas.width()
@@ -55,30 +55,41 @@ macro_rules! get_context {
 macro_rules! impl_capture_from_canvas {
     ($id:tt, $capture:ty, $canvas:ty, $context:ty, $option:ty) => {
         impl $capture {
-            pub fn from_canvas(canvas: $canvas) -> Result<Option<Self>, js_sys::Error> {
+            pub fn from_canvas(canvas: $canvas, color: crate::CaptureColor) -> Result<Option<Self>, js_sys::Error> {
                 canvas
                     .get_context($id)
                     .map(|value| {
                         value
                             .map(|obj| obj.dyn_into::<$context>().unwrap())
-                            .map(|context| Self::new(canvas, context))
+                            .map(|context| Self::new(canvas, context, color))
                     })
                     .map_err(|value| value.into())
             }
 
             pub fn from_canvas_with_options(
                 canvas: $canvas,
+                color: crate::CaptureColor,
                 options: $option,
             ) -> Result<Option<Self>, js_sys::Error> {
                 get_context!($id $id, canvas, options)
                     .map(|value| {
                         value
                             .map(|obj| obj.dyn_into::<$context>().unwrap())
-                            .map(|context| Self::new(canvas, context))
+                            .map(|context| Self::new(canvas, context, color))
                     })
                     .map_err(|value| value.into())
             }
         }
+    };
+}
+
+#[macro_export]
+macro_rules! options_field {
+    ("" $obj:expr, $alias:literal, $value:expr) => {
+    };
+
+    ($field:tt $obj:expr, $alias:literal, $value:expr) => {
+        js_set!($obj, $alias, $value);
     };
 }
 
@@ -90,10 +101,17 @@ macro_rules! impl_context_options {
             $(pub $field: $typ,)+
         }
 
+        impl $name {
+            $(pub fn $field(mut self, value: $typ) -> Self {
+                self.$field = value;
+                self
+            })+
+        }
+
         impl Into<JsValue> for $name {
             fn into(self) -> JsValue {
                 let options = js_sys::Object::new();
-                $(js_set!(options, $alias, self.$field);)+
+                $(options_field!($alias options, $alias, self.$field);)+
                 options.into()
             }
         }
