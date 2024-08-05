@@ -3,6 +3,8 @@ name = "browser-video-capture"
 version = "0.1.0"
 authors = ["Rostyslav Bohomaz <rostyslav.db@gmail.com>"]
 edition = "2018"
+description = "Raw video frame capture in WebAssembly for browser environment."
+license = "MIT/Apache-2.0"
 repository = "https://github.com/rostyq/browser-video-capture-rs"
 
 [lib]
