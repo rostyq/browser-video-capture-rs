@@ -9,6 +9,7 @@ mod gl;
 
 use web_sys::{js_sys, HtmlVideoElement};
 
+#[allow(unused_macros)]
 macro_rules! impl_enum_from {
     ($from:ty => $typ:ty:$name:tt) => {
         impl From<$from> for $typ {
@@ -537,6 +538,7 @@ impl From<BrowserCapture> for Box<dyn BrowserVideoCapture> {
     }
 }
 
+#[allow(unused_variables)]
 impl CaptureArea for BrowserCapture {
     enum_method!(capture_width () => u32);
     enum_method!(capture_height () => u32);
@@ -544,6 +546,7 @@ impl CaptureArea for BrowserCapture {
     enum_method!(set_capture_height (height: u32) => ());
 }
 
+#[allow(unused_variables)]
 impl BrowserVideoCapture for BrowserCapture {
     enum_method!(channels_count () => u32);
     enum_method!(buffer_size () => usize);
