@@ -35,6 +35,8 @@ macro_rules! enum_method {
                 Self::OffscreenGL(c) => c.$name($($arg),*),
                 #[cfg(all(feature = "offscreen", feature = "webgl2"))]
                 Self::OffscreenGL2(c) => c.$name($($arg),*),
+                #[allow(unreachable_patterns)]
+                _ => panic!("Unsupported variant. Please enable any features."),
             }
         }
     };
@@ -438,6 +440,8 @@ impl BrowserCaptureBuilder {
         }
     }
 }
+
+pub use utils::video_size;
 
 #[cfg(all(feature = "html", feature = "2d"))]
 pub use d2::html::ColorSpaceType;
