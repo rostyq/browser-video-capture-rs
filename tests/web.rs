@@ -26,7 +26,7 @@ use gloo::{
 };
 
 use browser_video_capture::{
-    impl_canvas_capture_area, BrowserCapture, BrowserCaptureBuilder, BrowserVideoCapture, CaptureArea, CaptureMode, HtmlContextOptions2D, OffscreenContextOptions2D, OffscreenContextOptionsGL, SupportedCanvas, SupportedOptions
+    impl_canvas_capture_area, BrowserCapture, BrowserCaptureBuilder, BrowserVideoCapture, CaptureArea, CaptureMode, GLVersion, HtmlContextOptions2D, HtmlContextOptionsGL, OffscreenContextOptions2D, OffscreenContextOptionsGL, SupportedCanvas, SupportedOptions
 };
 
 const DEFAULT_WIDTH: u32 = 300;
@@ -111,8 +111,11 @@ fn capture_ignores_empty_video(
     setup: CaptureSetup,
     #[values(
         HtmlContextOptions2D::default().alpha(true).will_read_frequently(true).into(),
+        HtmlContextOptionsGL::default().alpha(true).into(),
+        HtmlContextOptionsGL::default().alpha(true).version(GLVersion::WebGL2).into(),
         OffscreenContextOptions2D::default().alpha(true).will_read_frequently(true).into(),
-        OffscreenContextOptionsGL::default().alpha(true).into()
+        OffscreenContextOptionsGL::default().alpha(true).into(),
+        OffscreenContextOptionsGL::default().alpha(true).version(GLVersion::WebGL2).into()
     )]
     options: SupportedOptions,
     #[values(
@@ -147,8 +150,11 @@ async fn capture_non_empty_video_same_size(
     setup: CaptureSetup,
     #[values(
         HtmlContextOptions2D::default().will_read_frequently(true).into(),
+        HtmlContextOptionsGL::default().into(),
+        HtmlContextOptionsGL::default().version(GLVersion::WebGL2).into(),
         OffscreenContextOptions2D::default().will_read_frequently(true).into(),
-        OffscreenContextOptionsGL::default().into()
+        OffscreenContextOptionsGL::default().into(),
+        OffscreenContextOptionsGL::default().version(GLVersion::WebGL2).into()
     )]
     options: SupportedOptions,
     #[values(
@@ -163,7 +169,9 @@ async fn capture_non_empty_video_same_size(
     let cap = create_capture(width, height, options);
 
     setup.context.set_fill_style(&"white".into());
-    setup.context.fill_rect(0.0, 0.0, width as f64, height as f64);
+    setup
+        .context
+        .fill_rect(0.0, 0.0, width as f64, height as f64);
     wait_next_frame(&setup.video).await;
 
     cap.capture(&setup.video, mode);

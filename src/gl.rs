@@ -403,6 +403,31 @@ use web_sys::WebGl2RenderingContext;
 #[cfg(feature = "webgl")]
 use web_sys::WebGlRenderingContext;
 
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GLVersion {
+    #[default]
+    WebGL,
+    WebGL2,
+}
+
+impl Display for GLVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::WebGL => write!(f, "webgl"),
+            Self::WebGL2 => write!(f, "webgl2"),
+        }
+    }
+}
+
+impl Into<JsValue> for GLVersion {
+    fn into(self) -> JsValue {
+        match self {
+            Self::WebGL => JsValue::from("webgl"),
+            Self::WebGL2 => JsValue::from("webgl2"),
+        }
+    }
+}
+
 #[cfg(feature = "html")]
 pub mod html {
     use super::*;
@@ -411,6 +436,7 @@ pub mod html {
 
     impl_context_options!(
         HtmlContextOptionsGL
+        "" version: GLVersion,
         "" experimental: bool,
         "alpha" alpha: bool,
         "depth" depth: bool,
@@ -478,6 +504,7 @@ pub mod offscreen {
 
     impl_context_options!(
         OffscreenContextOptionsGL
+        "" version: GLVersion,
         "" experimental: bool,
         "alpha" alpha: bool,
         "depth" depth: bool,

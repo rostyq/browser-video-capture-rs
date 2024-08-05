@@ -7,7 +7,6 @@ mod d2;
 #[cfg(feature = "gl")]
 mod gl;
 
-use gl::html::HtmlContextOptionsGL;
 use web_sys::{js_sys, HtmlVideoElement};
 
 macro_rules! impl_enum_from {
@@ -226,13 +225,13 @@ impl_enum_from!(web_sys::WebGl2RenderingContext => SupportedContext:WebGL2);
 pub struct BrowserCaptureBuilder {
     pub context: Option<SupportedContext>,
     pub canvas: Option<SupportedCanvas>,
-    pub color: CaptureColor,
+    pub color: Option<CaptureColor>,
     pub options: Option<SupportedOptions>,
 }
 
 impl BrowserCaptureBuilder {
     pub fn color(mut self, color: CaptureColor) -> Self {
-        self.color = color;
+        self.color = Some(color);
         self
     }
 
@@ -285,7 +284,12 @@ impl BrowserCaptureBuilder {
         match (self.canvas, self.context, self.options) {
             #[cfg(feature = "html-2d")]
             (Some(SupportedCanvas::Html(canvas)), Some(SupportedContext::Html2D(context)), _) => {
-                Some(Ok(HtmlCapture2D::new(canvas, context, self.color).into()))
+                Some(Ok(HtmlCapture2D::new(
+                    canvas,
+                    context,
+                    self.color.unwrap_or_default(),
+                )
+                .into()))
             }
             #[cfg(feature = "html-2d")]
             (
@@ -293,47 +297,142 @@ impl BrowserCaptureBuilder {
                 None,
                 Some(SupportedOptions::Html2D(options)),
             ) => Some(
-                HtmlCapture2D::from_canvas_with_options(canvas, self.color, options)
-                    .transpose()?
-                    .map(Into::into),
+                HtmlCapture2D::from_canvas_with_options(
+                    canvas,
+                    self.color.unwrap_or_default(),
+                    options,
+                )
+                .transpose()?
+                .map(Into::into),
             ),
             #[cfg(feature = "offscreen-2d")]
             (
                 Some(SupportedCanvas::Offscreen(canvas)),
                 Some(SupportedContext::Ofscreen2D(context)),
                 _,
-            ) => Some(Ok(
-                OffscreenCapture2D::new(canvas, context, self.color).into()
-            )),
+            ) => Some(Ok(OffscreenCapture2D::new(
+                canvas,
+                context,
+                self.color.unwrap_or_default(),
+            )
+            .into())),
             #[cfg(feature = "offscreen-2d")]
             (
                 Some(SupportedCanvas::Offscreen(canvas)),
                 None,
                 Some(SupportedOptions::Offscreen2D(options)),
             ) => Some(
-                OffscreenCapture2D::from_canvas_with_options(canvas, self.color, options)
-                    .transpose()?
-                    .map(Into::into),
+                OffscreenCapture2D::from_canvas_with_options(
+                    canvas,
+                    self.color.unwrap_or_default(),
+                    options,
+                )
+                .transpose()?
+                .map(Into::into),
+            ),
+            #[cfg(all(feature = "html", feature = "webgl"))]
+            (Some(SupportedCanvas::Html(canvas)), Some(SupportedContext::WebGL(context)), _) => {
+                Some(Ok(HtmlCaptureGL::new(
+                    canvas,
+                    context,
+                    self.color.unwrap_or_default(),
+                )
+                .into()))
+            }
+            #[cfg(all(feature = "html", feature = "webgl2"))]
+            (Some(SupportedCanvas::Html(canvas)), Some(SupportedContext::WebGL2(context)), _) => {
+                Some(Ok(HtmlCaptureGL2::new(
+                    canvas,
+                    context,
+                    self.color.unwrap_or_default(),
+                )
+                .into()))
+            }
+            #[cfg(all(feature = "html", feature = "webgl"))]
+            (
+                Some(SupportedCanvas::Html(canvas)),
+                None,
+                Some(SupportedOptions::HtmlGL(options)),
+            ) if matches!(options.version, GLVersion::WebGL) => Some(
+                HtmlCaptureGL::from_canvas_with_options(
+                    canvas,
+                    self.color.unwrap_or_default(),
+                    options,
+                )
+                .transpose()?
+                .map(|c| c.validate().ok())
+                .transpose()?
+                .map(Into::into),
+            ),
+            #[cfg(all(feature = "html", feature = "webgl2"))]
+            (
+                Some(SupportedCanvas::Html(canvas)),
+                None,
+                Some(SupportedOptions::HtmlGL(options)),
+            ) if matches!(options.version, GLVersion::WebGL2) => Some(
+                HtmlCaptureGL2::from_canvas_with_options(
+                    canvas,
+                    self.color.unwrap_or_default(),
+                    options,
+                )
+                .transpose()?
+                .map(|c| c.validate().ok())
+                .transpose()?
+                .map(Into::into),
             ),
             #[cfg(all(feature = "offscreen", feature = "webgl"))]
             (
                 Some(SupportedCanvas::Offscreen(canvas)),
                 Some(SupportedContext::WebGL(context)),
                 _,
-            ) => Some(Ok(
-                OffscreenCaptureGL::new(canvas, context, self.color).into()
-            )),
+            ) => Some(Ok(OffscreenCaptureGL::new(
+                canvas,
+                context,
+                self.color.unwrap_or_default(),
+            )
+            .into())),
+            #[cfg(all(feature = "offscreen", feature = "webgl2"))]
+            (
+                Some(SupportedCanvas::Offscreen(canvas)),
+                Some(SupportedContext::WebGL2(context)),
+                _,
+            ) => Some(Ok(OffscreenCaptureGL2::new(
+                canvas,
+                context,
+                self.color.unwrap_or_default(),
+            )
+            .into())),
             #[cfg(all(feature = "offscreen", feature = "webgl"))]
             (
                 Some(SupportedCanvas::Offscreen(canvas)),
                 None,
                 Some(SupportedOptions::OffscreenGL(options)),
-            ) => Some(
-                OffscreenCaptureGL::from_canvas_with_options(canvas, self.color, options)
-                    .transpose()?
-                    .map(|c| c.validate().ok())
-                    .transpose()?
-                    .map(Into::into),
+            ) if matches!(options.version, GLVersion::WebGL) => Some(
+                OffscreenCaptureGL::from_canvas_with_options(
+                    canvas,
+                    self.color.unwrap_or_default(),
+                    options,
+                )
+                .transpose()?
+                .map(|c| c.validate().ok())
+                .transpose()?
+                .map(Into::into),
+            ),
+            #[cfg(all(feature = "offscreen", feature = "webgl"))]
+            (
+                Some(SupportedCanvas::Offscreen(canvas)),
+                None,
+                Some(SupportedOptions::OffscreenGL(options)),
+            ) if matches!(options.version, GLVersion::WebGL2) => Some(
+                OffscreenCaptureGL2::from_canvas_with_options(
+                    canvas,
+                    self.color.unwrap_or_default(),
+                    options,
+                )
+                .transpose()?
+                .map(|c| c.validate().ok())
+                .transpose()?
+                .map(Into::into),
             ),
             _ => None,
         }
@@ -348,18 +447,22 @@ pub use d2::html::{HtmlCapture2D, HtmlContextOptions2D};
 pub use d2::offscreen::OffscreenStorageType;
 #[cfg(feature = "offscreen-2d")]
 pub use d2::offscreen::{OffscreenCapture2D, OffscreenContextOptions2D};
+
+#[cfg(feature = "gl")]
+pub use gl::GLVersion;
 #[cfg(all(feature = "html", feature = "gl"))]
-pub use gl::html::PowerPreference;
+pub use gl::html::{PowerPreference, HtmlContextOptionsGL};
 #[cfg(all(feature = "offscreen", feature = "gl"))]
 pub use gl::offscreen::OffscreenContextOptionsGL;
-#[cfg(all(feature = "offscreen", feature = "webgl"))]
-pub use gl::offscreen::OffscreenCaptureGL;
-#[cfg(all(feature = "offscreen", feature = "webgl2"))]
-pub use gl::offscreen::OffscreenCaptureGL2;
+
 #[cfg(all(feature = "html", feature = "webgl"))]
 pub use gl::html::HtmlCaptureGL;
 #[cfg(all(feature = "html", feature = "webgl2"))]
 pub use gl::html::HtmlCaptureGL2;
+#[cfg(all(feature = "offscreen", feature = "webgl"))]
+pub use gl::offscreen::OffscreenCaptureGL;
+#[cfg(all(feature = "offscreen", feature = "webgl2"))]
+pub use gl::offscreen::OffscreenCaptureGL2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BrowserCapture {
@@ -381,10 +484,14 @@ pub enum BrowserCapture {
 impl_enum_from!(HtmlCapture2D => BrowserCapture:Html2D);
 #[cfg(feature = "offscreen-2d")]
 impl_enum_from!(OffscreenCapture2D => BrowserCapture:Offscreen2D);
-// #[cfg(all(feature = "html", feature = "gl"))]
-// impl_enum_from!(HtmlCaptureGL => BrowserCapture:HtmlGL);
+#[cfg(all(feature = "html", feature = "webgl"))]
+impl_enum_from!(HtmlCaptureGL => BrowserCapture:HtmlGL);
 #[cfg(all(feature = "offscreen", feature = "webgl"))]
 impl_enum_from!(OffscreenCaptureGL => BrowserCapture:OffscreenGL);
+#[cfg(all(feature = "html", feature = "webgl2"))]
+impl_enum_from!(HtmlCaptureGL2 => BrowserCapture:HtmlGL2);
+#[cfg(all(feature = "offscreen", feature = "webgl2"))]
+impl_enum_from!(OffscreenCaptureGL2 => BrowserCapture:OffscreenGL2);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SupportedOptions {
