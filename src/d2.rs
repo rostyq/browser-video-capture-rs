@@ -56,8 +56,6 @@ macro_rules! impl_capture_2d {
                         if dx > 0 || dy > 0 {
                             self.clear();
                         } else {
-                            let (sw, sh) = crate::utils::video_size(source);
-
                             if (sw as i32 - dx) < cw as i32 || (sh as i32 - dy) < ch as i32 {
                                 self.clear();
                             }
@@ -88,18 +86,7 @@ macro_rules! impl_capture_2d {
                             self.clear();
                         }
 
-                        let (dx, dy, dw, dh) = if sw > sh {
-                            let dh = ch as f64 * sw as f64 / sh as f64;
-                            ((cw as f64 - dh) / 2.0, 0.0, dh, dh)
-                        } else {
-                            let dw = cw as f64 * sh as f64 / sw as f64;
-                            (0.0, (ch as f64 - dw) / 2.0, dw, dw)
-                        };
-
-                        self.context
-                            .draw_image_with_html_video_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-                                source, 0.0, 0.0, sw as f64, sh as f64, dx, dy, dw, dh,
-                            )
+                        unimplemented!("CaptureMode::Pinhole");
                     }
                 }.unwrap();
 

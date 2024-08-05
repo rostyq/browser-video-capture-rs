@@ -119,18 +119,19 @@ fn capture_ignores_empty_video(
         CaptureMode::put_top_left(),
         CaptureMode::Fill,
         CaptureMode::Adjust,
-        CaptureMode::Pinhole
+        // CaptureMode::Pinhole
     )]
     mode: CaptureMode,
 ) {
     let cap = create_capture(DEFAULT_WIDTH, DEFAULT_HEIGHT, options);
+    console_dbg!(cap);
+
     cap.capture(&setup.video, mode);
     assert_eq!(cap.capture_width(), DEFAULT_WIDTH);
     assert_eq!(cap.capture_height(), DEFAULT_HEIGHT);
 
     let data = cap.data();
     assert_eq!(data.len(), cap.buffer_size());
-    console_dbg!(&data[0..8]);
     for value in data.into_iter() {
         assert_eq!(value, 0);
     }
@@ -154,7 +155,7 @@ async fn capture_non_empty_video_same_size(
         CaptureMode::put_top_left(),
         CaptureMode::Fill,
         CaptureMode::Adjust,
-        CaptureMode::Pinhole
+        // CaptureMode::Pinhole
     )]
     mode: CaptureMode,
 ) {
@@ -169,6 +170,60 @@ async fn capture_non_empty_video_same_size(
     let data = cap.image().unwrap().into_rgba8();
     assert_eq!(data.len(), cap.buffer_size());
     assert_eq!(data.get_pixel(0, 0), &Rgba([255, 255, 255, 255]));
+}
+
+#[rstest]
+#[wasm::test]
+async fn capture_simple_four_color(
+    #[values(
+        CaptureSetup::from_size(4, 4),
+        CaptureSetup::from_size(DEFAULT_WIDTH, DEFAULT_HEIGHT)
+    )]
+    setup: CaptureSetup,
+    #[values(
+        HtmlContextOptions2D::default().will_read_frequently(true).into(),
+        OffscreenContextOptions2D::default().will_read_frequently(true).into(),
+        OffscreenContextOptionsGL::default().into()
+    )]
+    options: SupportedOptions,
+    #[values(
+        CaptureMode::put_top_left(),
+        CaptureMode::Fill,
+        CaptureMode::Adjust,
+        // CaptureMode::Pinhole,
+    )]
+    mode: CaptureMode,
+) {
+    let (w, h) = setup.capture_size();
+    let cap = create_capture(w, h, options);
+    console_dbg!((w, h));
+    console_dbg!(cap);
+
+    // let (w, h) = (width as f64, height as f64);
+    let (x, y) = ((w / 2) as f64, (h / 2) as f64);
+
+    setup.context.set_fill_style(&"rgb(255, 0, 0)".into());
+    setup.context.fill_rect(0.0, 0.0, x, y);
+
+    setup.context.set_fill_style(&"rgb(0, 255, 0)".into());
+    setup.context.fill_rect(x, 0.0, x, y);
+
+    setup.context.set_fill_style(&"rgb(0, 0, 255)".into());
+    setup.context.fill_rect(0.0, y, x, y);
+
+    setup.context.set_fill_style(&"rgb(255, 255, 255)".into());
+    setup.context.fill_rect(x, y, x, y);
+
+    wait_next_frame(&setup.video).await;
+
+    cap.capture(&setup.video, mode);
+    let data = cap.image().unwrap().into_rgba8();
+
+    let (r, b) = (w - 1, h - 1);
+    assert_eq!(data.get_pixel(0, 0), &Rgba([255, 0, 0, 255]));
+    assert_eq!(data.get_pixel(r, 0), &Rgba([0, 255, 0, 255]));
+    assert_eq!(data.get_pixel(0, b), &Rgba([0, 0, 255, 255]));
+    assert_eq!(data.get_pixel(r, b), &Rgba([255, 255, 255, 255]));
 }
 
 fn animation_frame() -> JsFuture {

@@ -49,6 +49,15 @@ macro_rules! get_context {
             &$options.into(),
         )
     };
+    ("webgl2" $name:literal, $canvas:expr, $options:expr) => {
+        $canvas.get_context_with_context_options(
+            $options
+                .experimental
+                .then_some(concat!($name, "-experimental"))
+                .unwrap_or($name),
+            &$options.into(),
+        )
+    };
 }
 
 #[macro_export]

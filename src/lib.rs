@@ -25,15 +25,17 @@ macro_rules! enum_method {
         fn $name(&self, $($arg: $typ),*) -> $ret {
             match self {
                 #[cfg(feature = "html-2d")]
-                Self::Html(c) => c.$name($($arg),*),
+                Self::Html2D(c) => c.$name($($arg),*),
                 #[cfg(feature = "offscreen-2d")]
-                Self::Offscreen(c) => c.$name($($arg),*),
-                // #[cfg(all(feature = "html", feature = "gl"))]
-                // Self::HtmlGL(c) => c.capture_width($($arg: $typ)*),
+                Self::Offscreen2D(c) => c.$name($($arg),*),
+                #[cfg(all(feature = "html", feature = "webgl"))]
+                Self::HtmlGL(c) => c.$name($($arg),*),
+                #[cfg(all(feature = "html", feature = "webgl2"))]
+                Self::HtmlGL2(c) => c.$name($($arg),*),
                 #[cfg(all(feature = "offscreen", feature = "webgl"))]
                 Self::OffscreenGL(c) => c.$name($($arg),*),
-                // #[cfg(all(feature = "offscreen", feature = "webgl2"))]
-                // Self::OffscreenGL(c) => c.capture_width($($arg: $typ)*),
+                #[cfg(all(feature = "offscreen", feature = "webgl2"))]
+                Self::OffscreenGL2(c) => c.$name($($arg),*),
             }
         }
     };
@@ -348,29 +350,37 @@ pub use d2::offscreen::OffscreenStorageType;
 pub use d2::offscreen::{OffscreenCapture2D, OffscreenContextOptions2D};
 #[cfg(all(feature = "html", feature = "gl"))]
 pub use gl::html::PowerPreference;
+#[cfg(all(feature = "offscreen", feature = "gl"))]
+pub use gl::offscreen::OffscreenContextOptionsGL;
 #[cfg(all(feature = "offscreen", feature = "webgl"))]
-pub use gl::offscreen::{OffscreenCaptureGL, OffscreenContextOptionsGL};
+pub use gl::offscreen::OffscreenCaptureGL;
+#[cfg(all(feature = "offscreen", feature = "webgl2"))]
+pub use gl::offscreen::OffscreenCaptureGL2;
+#[cfg(all(feature = "html", feature = "webgl"))]
+pub use gl::html::HtmlCaptureGL;
+#[cfg(all(feature = "html", feature = "webgl2"))]
+pub use gl::html::HtmlCaptureGL2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BrowserCapture {
     #[cfg(feature = "html-2d")]
-    Html(HtmlCapture2D),
+    Html2D(HtmlCapture2D),
     #[cfg(feature = "offscreen-2d")]
-    Offscreen(OffscreenCapture2D),
-    // #[cfg(all(feature = "html", feature = "webgl"))]
-    // HtmlGL(HtmlCaptureGL),
-    // #[cfg(all(feature = "html", feature = "webgl2"))]
-    // HtmlGL2(HtmlCaptureGL2),
+    Offscreen2D(OffscreenCapture2D),
+    #[cfg(all(feature = "html", feature = "webgl"))]
+    HtmlGL(HtmlCaptureGL),
+    #[cfg(all(feature = "html", feature = "webgl2"))]
+    HtmlGL2(HtmlCaptureGL2),
     #[cfg(all(feature = "offscreen", feature = "webgl"))]
     OffscreenGL(OffscreenCaptureGL),
-    // #[cfg(all(feature = "offscreen", feature = "webgl2"))]
-    // OffscreenGL2(OffscreenCaptureGL2),
+    #[cfg(all(feature = "offscreen", feature = "webgl2"))]
+    OffscreenGL2(OffscreenCaptureGL2),
 }
 
 #[cfg(feature = "html-2d")]
-impl_enum_from!(HtmlCapture2D => BrowserCapture:Html);
+impl_enum_from!(HtmlCapture2D => BrowserCapture:Html2D);
 #[cfg(feature = "offscreen-2d")]
-impl_enum_from!(OffscreenCapture2D => BrowserCapture:Offscreen);
+impl_enum_from!(OffscreenCapture2D => BrowserCapture:Offscreen2D);
 // #[cfg(all(feature = "html", feature = "gl"))]
 // impl_enum_from!(HtmlCaptureGL => BrowserCapture:HtmlGL);
 #[cfg(all(feature = "offscreen", feature = "webgl"))]
@@ -401,15 +411,17 @@ impl From<BrowserCapture> for Box<dyn BrowserVideoCapture> {
     fn from(value: BrowserCapture) -> Self {
         match value {
             #[cfg(feature = "html-2d")]
-            BrowserCapture::Html(c) => Box::new(c),
+            BrowserCapture::Html2D(c) => Box::new(c),
             #[cfg(feature = "offscreen-2d")]
-            BrowserCapture::Offscreen(c) => Box::new(c),
-            // #[cfg(all(feature = "html", feature = "gl"))]
-            // Self::HtmlGL(c) => Box::new(c),
-            #[cfg(all(feature = "offscreen", feature = "gl"))]
+            BrowserCapture::Offscreen2D(c) => Box::new(c),
+            #[cfg(all(feature = "html", feature = "webgl"))]
+            BrowserCapture::HtmlGL(c) => Box::new(c),
+            #[cfg(all(feature = "html", feature = "webgl2"))]
+            BrowserCapture::HtmlGL2(c) => Box::new(c),
+            #[cfg(all(feature = "offscreen", feature = "webgl"))]
             BrowserCapture::OffscreenGL(c) => Box::new(c),
-            // #[cfg(all(feature = "offscreen", feature = "webgl2"))]
-            // Self::OffscreenGL(c) => Box::new(c),
+            #[cfg(all(feature = "offscreen", feature = "webgl2"))]
+            BrowserCapture::OffscreenGL2(c) => Box::new(c),
         }
     }
 }
